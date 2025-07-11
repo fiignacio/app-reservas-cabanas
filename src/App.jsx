@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calendar, Users, DollarSign, BarChart2, Plus, Edit, Trash2, Moon, Sun, AlertCircle, CheckCircle, X, Info } from 'lucide-react';
+import { Calendar, Users, DollarSign, BarChart2, Plus, Edit, Trash2, Moon, Sun, AlertCircle, CheckCircle, X, Info, ChevronLeft, ChevronRight, Lock, LockOpen } from 'lucide-react';
 
 // --- CONFIGURACIÓN ---
-// En el Paso 1 de la guía, obtendrás esta configuración de tu propio proyecto de Firebase.
+// REEMPLAZA ESTO CON TU PROPIA CONFIGURACIÓN DE FIREBASE
 const firebaseConfig = {
 
   apiKey: "AIzaSyDj95U3l2NH0qWiekGyp4klhg6Ny3T8smU",
@@ -65,7 +65,7 @@ const Notification = ({ message, type, onClose }) => {
     const Icon = isSuccess ? CheckCircle : AlertCircle;
 
     return (
-        <div className={`fixed top-5 right-5 max-w-sm w-full p-4 rounded-lg border-l-4 shadow-lg ${bgColor} ${borderColor} ${textColor}`} role="alert">
+        <div className={`fixed top-5 right-5 max-w-sm w-full p-4 rounded-lg border-l-4 shadow-lg ${bgColor} ${borderColor} ${textColor} z-50`} role="alert">
             <div className="flex items-start">
                 <Icon className="h-6 w-6 mr-3" />
                 <div className="flex-1">
@@ -135,7 +135,6 @@ export default function App() {
 
     // --- EFECTOS ---
     useEffect(() => {
-        // Autenticación de Firebase
         const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setUserId(user.uid);
@@ -153,7 +152,6 @@ export default function App() {
     }, []);
 
     useEffect(() => {
-        // Suscripción a los datos de Firestore
         if (!isAuthReady || !auth.currentUser) return;
         
         const q = query(collection(db, "reservations"));
@@ -172,7 +170,6 @@ export default function App() {
     }, [isAuthReady]);
 
     useEffect(() => {
-        // Manejo del modo oscuro
         if (darkMode) {
             document.documentElement.classList.add('dark');
         } else {
@@ -184,13 +181,16 @@ export default function App() {
 
     const calculateTotalCost = (adults, children, checkIn, checkOut) => {
         if (!checkIn || !checkOut) return 0;
-        const nights = Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
+        const checkInDate = new Date(checkIn);
+        const checkOutDate = new Date(checkOut);
+        if (checkOutDate <= checkInDate) return 0;
+        const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
         if (nights <= 0) return 0;
         const cost = (Number(adults) * PRICING_CONFIG.adult + Number(children) * PRICING_CONFIG.child) * nights;
         return cost;
     };
 
-    const checkAvailability = async (cabinType, cabinId, checkIn, checkOut, excludingBookingId = null) => {
+    const checkAvailability = async (cabinId, checkIn, checkOut, excludingBookingId = null) => {
         const newCheckIn = new Date(checkIn);
         const newCheckOut = new Date(checkOut);
 
@@ -215,7 +215,7 @@ export default function App() {
         const { count } = CABIN_CONFIG[cabinType];
         for (let i = 1; i <= count; i++) {
             const cabinId = `${cabinType}-${i}`;
-            const isAvailable = await checkAvailability(cabinType, cabinId, checkIn, checkOut, excludingBookingId);
+            const isAvailable = await checkAvailability(cabinId, checkIn, checkOut, excludingBookingId);
             if (isAvailable) {
                 return cabinId;
             }
@@ -224,7 +224,7 @@ export default function App() {
     };
 
     // --- MANEJADORES DE EVENTOS ---
-    const handleSaveBooking = async (formData) => {
+    const handleSaveBooking = async (formData, isPriceOverridden) => {
         if (!formData.guestName || !formData.checkIn || !formData.checkOut || !formData.cabinType) {
             setNotification({ message: 'Por favor, complete todos los campos requeridos.', type: 'error' });
             return;
@@ -258,7 +258,8 @@ export default function App() {
                 toddlers: Number(formData.toddlers),
                 depositAmount: Number(formData.depositAmount),
                 depositPaid: Boolean(formData.depositPaid),
-                totalCost: calculateTotalCost(formData.adults, formData.children, formData.checkIn, formData.checkOut),
+                totalCost: isPriceOverridden ? Number(formData.totalCost) : calculateTotalCost(formData.adults, formData.children, formData.checkIn, formData.checkOut),
+                isPriceOverridden: isPriceOverridden,
                 cabinId: availableCabinId,
                 updatedAt: new Date().toISOString(),
             };
@@ -330,16 +331,30 @@ export default function App() {
             cabinType: 'pequena',
             depositPaid: false,
             depositAmount: 0,
+            totalCost: 0,
         };
         const [formData, setFormData] = useState(editingBooking || initialFormData);
+        const [isPriceOverridden, setIsPriceOverridden] = useState(editingBooking?.isPriceOverridden || false);
 
         useEffect(() => {
-            if (editingBooking) {
-                setFormData(editingBooking);
-            } else {
-                setFormData(initialFormData);
-            }
+            const bookingToEdit = editingBooking || initialFormData;
+            const calculatedCost = calculateTotalCost(bookingToEdit.adults, bookingToEdit.children, bookingToEdit.checkIn, bookingToEdit.checkOut);
+            
+            setFormData({
+                ...bookingToEdit,
+                totalCost: editingBooking?.isPriceOverridden ? editingBooking.totalCost : calculatedCost,
+            });
+            setIsPriceOverridden(editingBooking?.isPriceOverridden || false);
+
         }, [editingBooking]);
+        
+        useEffect(() => {
+            if (!isPriceOverridden) {
+                const newTotal = calculateTotalCost(formData.adults, formData.children, formData.checkIn, formData.checkOut);
+                setFormData(prev => ({ ...prev, totalCost: newTotal }));
+            }
+        }, [formData.adults, formData.children, formData.checkIn, formData.checkOut, isPriceOverridden]);
+
 
         const handleChange = (e) => {
             const { name, value, type, checked } = e.target;
@@ -348,10 +363,8 @@ export default function App() {
 
         const handleSubmit = (e) => {
             e.preventDefault();
-            handleSaveBooking(formData);
+            handleSaveBooking(formData, isPriceOverridden);
         };
-
-        const totalCost = calculateTotalCost(formData.adults, formData.children, formData.checkIn, formData.checkOut);
 
         return (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 overflow-y-auto p-4">
@@ -404,8 +417,29 @@ export default function App() {
                                 <input type="number" name="depositAmount" min="0" value={formData.depositAmount} onChange={handleChange} disabled={!formData.depositPaid} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-200 dark:disabled:bg-gray-600" />
                             </div>
                         </div>
-                        <div className="pt-4 text-right">
-                            <p className="text-lg font-semibold text-gray-800 dark:text-white">Total a Pagar: ${totalCost.toLocaleString('es-CL')}</p>
+                        <div className="pt-4 space-y-2">
+                            <div className="flex justify-between items-center">
+                                <label htmlFor="override" className="flex items-center cursor-pointer">
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-3">Editar Total (Descuento)</span>
+                                    <div className="relative">
+                                        <input type="checkbox" id="override" className="sr-only" checked={isPriceOverridden} onChange={() => setIsPriceOverridden(!isPriceOverridden)} />
+                                        <div className="block bg-gray-600 w-14 h-8 rounded-full"></div>
+                                        <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
+                                    </div>
+                                </label>
+                                {isPriceOverridden ? <LockOpen className="text-green-500"/> : <Lock className="text-red-500"/>}
+                            </div>
+                             <div className="flex items-center">
+                                <span className="text-lg font-semibold text-gray-800 dark:text-white mr-2">Total a Pagar: $</span>
+                                <input 
+                                    type="number" 
+                                    name="totalCost" 
+                                    value={formData.totalCost} 
+                                    onChange={handleChange} 
+                                    disabled={!isPriceOverridden} 
+                                    className="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-gray-200 dark:disabled:bg-gray-600 text-lg font-semibold" 
+                                />
+                            </div>
                         </div>
                         <div className="flex justify-end space-x-3 pt-4">
                             <button type="button" onClick={closeModal} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">Cancelar</button>
@@ -417,57 +451,99 @@ export default function App() {
         );
     };
 
-    const CalendarView = () => {
+    const TimelineCalendarView = () => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
-        const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-        const weekdays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-
-        const getBookingsForDay = (day) => {
-            const date = new Date(year, month, day);
-            date.setHours(0,0,0,0);
-            const nextDay = new Date(date);
-            nextDay.setDate(date.getDate() + 1);
-
-            return bookings.filter(b => {
-                const checkIn = new Date(b.checkIn);
-                const checkOut = new Date(b.checkOut);
-                return checkIn < nextDay && checkOut > date;
+        
+        const allCabins = useMemo(() => {
+            const cabins = [];
+            Object.entries(CABIN_CONFIG).forEach(([type, { name, count }]) => {
+                for (let i = 1; i <= count; i++) {
+                    cabins.push({ id: `${type}-${i}`, name: `${name} ${i}` });
+                }
             });
+            return cabins;
+        }, []);
+
+        const getBookingStyle = (booking, day) => {
+            const checkIn = new Date(booking.checkIn);
+            const checkOut = new Date(booking.checkOut);
+            checkIn.setHours(0,0,0,0);
+            checkOut.setHours(0,0,0,0);
+            const currentDayStart = new Date(year, month, day);
+            
+            if (currentDayStart < checkIn || currentDayStart >= checkOut) {
+                return {};
+            }
+            
+            const isStart = currentDayStart.getTime() === checkIn.getTime();
+            const isEnd = currentDayStart.getTime() === new Date(checkOut.getTime() - 86400000).getTime(); // One day before checkout
+
+            return {
+                backgroundColor: darkMode ? '#3b82f6' : '#bfdbfe',
+                color: darkMode ? '#eff6ff' : '#1e40af',
+                borderLeft: isStart ? '2px solid #1d4ed8' : 'none',
+                borderRight: isEnd ? '2px solid #1d4ed8' : 'none',
+                paddingLeft: isStart ? '0.5rem' : '0.25rem',
+                borderTopLeftRadius: isStart ? '0.375rem' : '0',
+                borderBottomLeftRadius: isStart ? '0.375rem' : '0',
+                borderTopRightRadius: isEnd ? '0.375rem' : '0',
+                borderBottomRightRadius: isEnd ? '0.375rem' : '0',
+            };
         };
 
         return (
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                <div className="flex justify-between items-center mb-4">
-                    <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">&lt;</button>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md overflow-x-auto">
+                <div className="flex justify-between items-center mb-4 sticky left-0">
+                    <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronLeft/></button>
                     <h2 className="text-xl font-bold text-gray-800 dark:text-white">
                         {currentDate.toLocaleString('es-CL', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
                     </h2>
-                    <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">&gt;</button>
+                    <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronRight/></button>
                 </div>
-                <div className="grid grid-cols-7 gap-1 text-center font-semibold text-gray-600 dark:text-gray-400">
-                    {weekdays.map(day => <div key={day}>{day}</div>)}
-                </div>
-                <div className="grid grid-cols-7 gap-1 mt-2">
-                    {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} />)}
-                    {days.map(day => {
-                        const dayBookings = getBookingsForDay(day);
-                        const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
-                        return (
-                            <div key={day} className="border dark:border-gray-700 rounded-md p-2 h-28 flex flex-col">
-                                <div className={`font-bold ${isToday ? 'bg-indigo-500 text-white rounded-full w-7 h-7 flex items-center justify-center' : 'text-gray-800 dark:text-gray-200'}`}>{day}</div>
-                                <div className="mt-1 overflow-y-auto text-xs space-y-1">
-                                    {dayBookings.map(b => (
-                                        <div key={b.id} onClick={() => openModal(b)} className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 p-1 rounded cursor-pointer truncate">
-                                            {b.guestName} ({b.cabinType.charAt(0).toUpperCase()})
+                <div className="inline-block min-w-full">
+                    <div className="grid" style={{ gridTemplateColumns: `150px repeat(${daysInMonth}, minmax(40px, 1fr))` }}>
+                        {/* Header */}
+                        <div className="sticky left-0 bg-white dark:bg-gray-800 z-10 font-semibold p-2 border-b border-r dark:border-gray-700">Cabaña</div>
+                        {days.map(day => (
+                            <div key={day} className="text-center font-semibold p-2 border-b dark:border-gray-700">{day}</div>
+                        ))}
+                        
+                        {/* Body */}
+                        {allCabins.map((cabin, cabinIndex) => (
+                            <React.Fragment key={cabin.id}>
+                                <div className={`sticky left-0 z-10 font-medium p-2 border-r dark:border-gray-700 ${cabinIndex % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-700'}`}>{cabin.name}</div>
+                                {days.map(day => {
+                                    const dayBookings = bookings.filter(b => b.cabinId === cabin.id);
+                                    const bookingOnThisDay = dayBookings.find(b => {
+                                        const checkIn = new Date(b.checkIn);
+                                        const checkOut = new Date(b.checkOut);
+                                        checkIn.setHours(0,0,0,0);
+                                        checkOut.setHours(0,0,0,0);
+                                        const currentDayStart = new Date(year, month, day);
+                                        return currentDayStart >= checkIn && currentDayStart < checkOut;
+                                    });
+
+                                    return (
+                                        <div key={day} className={`border-b dark:border-gray-700 ${cabinIndex % 2 === 0 ? 'bg-gray-50 dark:bg-gray-900/50' : 'bg-white dark:bg-gray-800'}`}>
+                                            {bookingOnThisDay && (
+                                                <div 
+                                                    onClick={() => openModal(bookingOnThisDay)}
+                                                    className="h-full flex items-center text-xs cursor-pointer whitespace-nowrap overflow-hidden" 
+                                                    style={getBookingStyle(bookingOnThisDay, day)}
+                                                    title={bookingOnThisDay.guestName}
+                                                >
+                                                    {new Date(year, month, day).getTime() === new Date(bookingOnThisDay.checkIn).getTime() ? bookingOnThisDay.guestName : ''}
+                                                </div>
+                                            )}
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    })}
+                                    );
+                                })}
+                            </React.Fragment>
+                        ))}
+                    </div>
                 </div>
             </div>
         );
@@ -478,13 +554,14 @@ export default function App() {
 
         return (
             <div className="mt-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">Listado de Reservas cambio</h3>
+                <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">Listado de Reservas</h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
                                 <th scope="col" className="px-6 py-3">Huésped</th>
-                                <th scope="col" className="px-6 py-3">Fechas</th>
+                                <th scope="col" className="px-6 py-3">Check-in</th>
+                                <th scope="col" className="px-6 py-3">Check-out</th>
                                 <th scope="col" className="px-6 py-3">Cabaña</th>
                                 <th scope="col" className="px-6 py-3">Total</th>
                                 <th scope="col" className="px-6 py-3">Abono</th>
@@ -495,9 +572,13 @@ export default function App() {
                             {sortedBookings.map(b => (
                                 <tr key={b.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                     <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{b.guestName}</td>
-                                    <td className="px-6 py-4">{new Date(b.checkIn).toLocaleDateString('es-CL')} - {new Date(b.checkOut).toLocaleDateString('es-CL')}</td>
+                                    <td className="px-6 py-4">{new Date(b.checkIn).toLocaleDateString('es-CL')}</td>
+                                    <td className="px-6 py-4">{new Date(b.checkOut).toLocaleDateString('es-CL')}</td>
                                     <td className="px-6 py-4">{CABIN_CONFIG[b.cabinType].name} ({b.cabinId})</td>
-                                    <td className="px-6 py-4">${b.totalCost.toLocaleString('es-CL')}</td>
+                                    <td className="px-6 py-4 flex items-center">
+                                        ${b.totalCost.toLocaleString('es-CL')}
+                                        {b.isPriceOverridden && <Info size={14} className="ml-2 text-blue-500" title="Precio modificado manualmente"/>}
+                                    </td>
                                     <td className="px-6 py-4">
                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${b.depositPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                             {b.depositPaid ? `Sí ($${b.depositAmount.toLocaleString('es-CL')})` : 'No'}
@@ -563,6 +644,12 @@ export default function App() {
 
     return (
         <div className={`min-h-screen ${darkMode ? 'dark' : ''} bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300`}>
+            <style>{`
+                input:checked ~ .dot {
+                    transform: translateX(100%);
+                    background-color: #4f46e5;
+                }
+            `}</style>
             <Notification message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: '' })} />
             {isModalOpen && <BookingFormModal />}
             <ConfirmationModal 
@@ -575,7 +662,7 @@ export default function App() {
 
             <header className="bg-white dark:bg-gray-800 shadow-md">
                 <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-                    <h1 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Gestión de Cabañas</h1>
+                    <h1 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Mis Cabañas</h1>
                     <div className="flex items-center space-x-4">
                         <button onClick={() => openModal()} className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition">
                             <Plus size={20} />
@@ -602,7 +689,7 @@ export default function App() {
 
                 {view === 'calendar' ? (
                     <div>
-                        <CalendarView />
+                        <TimelineCalendarView />
                         <BookingListView />
                     </div>
                 ) : (
@@ -612,5 +699,4 @@ export default function App() {
         </div>
     );
 }
-
 
