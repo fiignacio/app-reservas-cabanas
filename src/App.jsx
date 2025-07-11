@@ -36,11 +36,6 @@ const CABIN_CONFIG = {
     'grande': { name: 'Cabaña Grande', capacity: 6, count: 1, color: { light: '#fee2e2', dark: '#7f1d1d' } },  // Red
 };
 
-const CABIN_CONFIG = {
-    'pequena': { name: 'Cabaña Pequeña', capacity: 3, count: 1 },
-    'mediana': { name: 'Cabaña Mediana', capacity: 4, count: 2 },
-    'grande': { name: 'Cabaña Grande', capacity: 6, count: 1 },
-};
 
 const PRICING_CONFIG = {
     low: { adult: 25000, child: 15000, toddler: 0 },
