@@ -478,7 +478,7 @@ export default function App() {
 
         return (
             <div className="mt-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">Listado de Reservas</h3>
+                <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">Listado de Reservas cambio</h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
