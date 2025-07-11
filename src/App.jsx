@@ -8,12 +8,21 @@ import { Calendar, Users, DollarSign, BarChart2, Plus, Edit, Trash2, Moon, Sun, 
 // --- CONFIGURACIÓN ---
 // En el Paso 1 de la guía, obtendrás esta configuración de tu propio proyecto de Firebase.
 const firebaseConfig = {
-    apiKey: "TU_API_KEY", // REEMPLAZAR
-    authDomain: "TU_AUTH_DOMAIN", // REEMPLAZAR
-    projectId: "TU_PROJECT_ID", // REEMPLAZAR
-    storageBucket: "TU_STORAGE_BUCKET", // REEMPLAZAR
-    messagingSenderId: "TU_MESSAGING_SENDER_ID", // REEMPLAZAR
-    appId: "TU_APP_ID" // REEMPLAZAR
+
+  apiKey: "AIzaSyDj95U3l2NH0qWiekGyp4klhg6Ny3T8smU",
+
+  authDomain: "manuarareservas.firebaseapp.com",
+
+  projectId: "manuarareservas",
+
+  storageBucket: "manuarareservas.firebasestorage.app",
+
+  messagingSenderId: "93580658717",
+
+  appId: "1:93580658717:web:685e2d16cc669498159ef4",
+
+  measurementId: "G-8CJF38FQH8"
+
 };
 
 const CABIN_CONFIG = {
