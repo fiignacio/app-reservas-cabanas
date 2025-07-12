@@ -70,6 +70,12 @@ export default function App() {
     const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, bookingId: null });
     const [eventLogModal, setEventLogModal] = useState({ isOpen: false, booking: null });
 
+    // Helper para parsear fechas sin problemas de timezone
+    const parseDateAsLocal = (dateString) => {
+        const [year, month, day] = dateString.split('-').map(Number);
+        return new Date(year, month - 1, day);
+    };
+
     const { activeBookings, archivedBookings, upcomingArrivals } = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -78,7 +84,7 @@ export default function App() {
         const archived = [];
 
         allBookings.forEach(booking => {
-            const checkOutDate = new Date(booking.checkOut);
+            const checkOutDate = parseDateAsLocal(booking.checkOut);
             if (checkOutDate < today) {
                 archived.push(booking);
             } else {
@@ -90,8 +96,7 @@ export default function App() {
         twoDaysFromNow.setDate(today.getDate() + 2);
 
         const arrivals = active.filter(b => {
-            const checkInDate = new Date(b.checkIn);
-            checkInDate.setHours(0,0,0,0);
+            const checkInDate = parseDateAsLocal(b.checkIn);
             return checkInDate >= today && checkInDate <= twoDaysFromNow;
         });
 
@@ -145,8 +150,8 @@ export default function App() {
     // --- LÓGICA DE NEGOCIO ---
     const calculateTotalCost = (adults, children, checkIn, checkOut, season = 'low') => {
         if (!checkIn || !checkOut) return 0;
-        const checkInDate = new Date(checkIn);
-        const checkOutDate = new Date(checkOut);
+        const checkInDate = parseDateAsLocal(checkIn);
+        const checkOutDate = parseDateAsLocal(checkOut);
         if (checkOutDate <= checkInDate) return 0;
         const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
         if (nights <= 0) return 0;
@@ -165,7 +170,7 @@ export default function App() {
             for (const doc of querySnapshot.docs) {
                 if (doc.id === excludingBookingId) continue;
                 const b = doc.data();
-                if (new Date(checkIn) < new Date(b.checkOut) && new Date(checkOut) > new Date(b.checkIn)) {
+                if (parseDateAsLocal(checkIn) < parseDateAsLocal(b.checkOut) && parseDateAsLocal(checkOut) > parseDateAsLocal(b.checkIn)) {
                     isAvailable = false;
                     break;
                 }
@@ -284,9 +289,9 @@ export default function App() {
         const month = currentDate.getMonth();
         
         const monthlyBookings = activeBookings.filter(b => {
-            const checkIn = new Date(b.checkIn);
+            const checkIn = parseDateAsLocal(b.checkIn);
             return checkIn.getFullYear() === year && checkIn.getMonth() === month;
-        }).sort((a, b) => new Date(a.checkIn) - new Date(b.checkIn));
+        }).sort((a, b) => parseDateAsLocal(a.checkIn) - parseDateAsLocal(b.checkIn));
 
         if (monthlyBookings.length === 0) {
             setNotification({ message: 'No hay reservas activas para exportar en el mes seleccionado.', type: 'error' });
@@ -308,8 +313,8 @@ export default function App() {
         const head = [['Huésped', 'Check-in', 'Check-out', 'Cabaña', 'Pasajeros', 'Total', 'Temporada']];
         const body = monthlyBookings.map(b => [
             b.guestName,
-            new Date(b.checkIn).toLocaleDateString('es-CL'),
-            new Date(b.checkOut).toLocaleDateString('es-CL'),
+            parseDateAsLocal(b.checkIn).toLocaleDateString('es-CL'),
+            parseDateAsLocal(b.checkOut).toLocaleDateString('es-CL'),
             `${CABIN_CONFIG[b.cabinType].name} #${b.cabinId.split('-')[1]}`,
             (b.adults || 0) + (b.children || 0) + (b.toddlers || 0),
             `$${b.totalCost.toLocaleString('es-CL')}`,
@@ -348,7 +353,7 @@ export default function App() {
                 return;
             }
             const totalCost = calculateTotalCost(quoteData.adults, quoteData.children, quoteData.checkIn, quoteData.checkOut, quoteData.season);
-            const nights = Math.ceil((new Date(quoteData.checkOut) - new Date(quoteData.checkIn)) / (1000 * 60 * 60 * 24));
+            const nights = Math.ceil((parseDateAsLocal(quoteData.checkOut) - parseDateAsLocal(quoteData.checkIn)) / (1000 * 60 * 60 * 24));
             setResult({ ...quoteData, totalCost, nights });
         };
 
@@ -366,8 +371,8 @@ export default function App() {
 
             doc.autoTable({
                 body: [
-                    ['Check-in:', new Date(result.checkIn).toLocaleDateString('es-CL')],
-                    ['Check-out:', new Date(result.checkOut).toLocaleDateString('es-CL')],
+                    ['Check-in:', parseDateAsLocal(result.checkIn).toLocaleDateString('es-CL')],
+                    ['Check-out:', parseDateAsLocal(result.checkOut).toLocaleDateString('es-CL')],
                     ['Noches:', result.nights],
                     ['Cabaña:', CABIN_CONFIG[result.cabinType].name],
                     ['Huéspedes:', `${result.adults} Adulto(s), ${result.children} Niño(s)`],
@@ -693,31 +698,35 @@ export default function App() {
                             <React.Fragment key={cabin.id}>
                                 <div className={`sticky left-0 z-10 font-medium p-2 border-r dark:border-gray-700 ${cabinIndex % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-700'}`}>{cabin.name}</div>
                                 {days.map(day => {
-                                    const bookingOnThisDay = bookingsToDisplay.find(b => {
-                                        const checkIn = new Date(b.checkIn);
-                                        const checkOut = new Date(b.checkOut);
-                                        checkIn.setHours(0,0,0,0);
-                                        checkOut.setHours(0,0,0,0);
-                                        const currentDayStart = new Date(year, month, day);
-                                        return b.cabinId === cabin.id && currentDayStart >= checkIn && currentDayStart < checkOut;
-                                    });
-
-                                    const isStart = bookingOnThisDay && new Date(year, month, day).getTime() === new Date(bookingOnThisDay.checkIn).getTime();
-                                    const colorSet = bookingOnThisDay ? CABIN_CONFIG[bookingOnThisDay.cabinType].color[bookingOnThisDay.season || 'low'] : null;
+                                    const currentDayDate = new Date(year, month, day);
+                                    
+                                    const checkInBooking = bookingsToDisplay.find(b => b.cabinId === cabin.id && parseDateAsLocal(b.checkIn).getTime() === currentDayDate.getTime());
+                                    const checkOutBooking = bookingsToDisplay.find(b => b.cabinId === cabin.id && parseDateAsLocal(b.checkOut).getTime() === currentDayDate.getTime());
+                                    const ongoingBooking = bookingsToDisplay.find(b => b.cabinId === cabin.id && parseDateAsLocal(b.checkIn) < currentDayDate && parseDateAsLocal(b.checkOut) > currentDayDate);
+                                    
+                                    const bookingForCell = checkInBooking || ongoingBooking;
+                                    const colorSet = bookingForCell ? CABIN_CONFIG[bookingForCell.cabinType].color[bookingForCell.season || 'low'] : null;
 
                                     return (
                                         <div key={day} className={`border-b dark:border-gray-700 relative h-12 ${cabinIndex % 2 === 0 ? 'bg-gray-50 dark:bg-gray-900/50' : 'bg-white dark:bg-gray-800'}`}>
-                                            {bookingOnThisDay && (
+                                            {checkOutBooking && (
+                                                <div className="absolute top-0 left-0 w-full h-1/2 bg-gray-400/50 dark:bg-gray-600/50" title={`Salida: ${checkOutBooking.guestName}`}></div>
+                                            )}
+                                            {bookingForCell && (
                                                 <div 
-                                                    onClick={() => openModal(bookingOnThisDay)}
-                                                    className="absolute inset-0 cursor-pointer"
+                                                    onClick={() => openModal(bookingForCell)}
+                                                    className={`absolute inset-0 cursor-pointer border-2 border-white dark:border-gray-800 
+                                                        ${checkInBooking && checkOutBooking ? 'top-1/2 h-1/2' : ''}
+                                                        ${checkInBooking ? 'rounded-l-lg' : ''}
+                                                        ${parseDateAsLocal(bookingForCell.checkOut).getTime() === new Date(year, month, day + 1).getTime() ? 'rounded-r-lg' : ''}
+                                                    `}
                                                     style={{backgroundColor: darkMode ? colorSet.dark : colorSet.light}}
-                                                    title={bookingOnThisDay.guestName}
+                                                    title={bookingForCell.guestName}
                                                 >
-                                                    {isStart && 
+                                                    {checkInBooking && 
                                                         <div className="absolute inset-0 flex items-center pl-2 overflow-hidden">
                                                             <span className="font-semibold truncate text-xs" style={{color: darkMode ? '#fff' : '#000', textShadow: '1px 1px 2px rgba(0,0,0,0.2)'}}>
-                                                                {bookingOnThisDay.guestName} ({ (bookingOnThisDay.adults || 0) + (bookingOnThisDay.children || 0) + (bookingOnThisDay.toddlers || 0) }p)
+                                                                {bookingForCell.guestName} ({ (bookingForCell.adults || 0) + (bookingForCell.children || 0) + (bookingForCell.toddlers || 0) }p)
                                                             </span>
                                                         </div>
                                                     }
