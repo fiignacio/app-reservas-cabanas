@@ -65,6 +65,7 @@ export default function App() {
 
     // Helper para parsear fechas sin problemas de timezone
     const parseDateAsLocal = (dateString) => {
+        if (!dateString) return null;
         const [year, month, day] = dateString.split('-').map(Number);
         return new Date(year, month - 1, day);
     };
@@ -78,7 +79,7 @@ export default function App() {
 
         allBookings.forEach(booking => {
             const checkOutDate = parseDateAsLocal(booking.checkOut);
-            if (checkOutDate < today) {
+            if (checkOutDate && checkOutDate < today) {
                 archived.push(booking);
             } else {
                 active.push(booking);
@@ -90,12 +91,16 @@ export default function App() {
 
         const arrivals = active.filter(b => {
             const checkInDate = parseDateAsLocal(b.checkIn);
-            return checkInDate >= today && checkInDate <= twoDaysFromNow;
+            return checkInDate && checkInDate >= today && checkInDate <= twoDaysFromNow;
         });
 
         return { 
             activeBookings: active, 
-            archivedBookings: archived.sort((a,b) => new Date(b.checkOut) - new Date(a.checkOut)), 
+            archivedBookings: archived.sort((a,b) => {
+                const dateA = a.checkOut ? parseDateAsLocal(a.checkOut).getTime() : 0;
+                const dateB = b.checkOut ? parseDateAsLocal(b.checkOut).getTime() : 0;
+                return dateB - dateA;
+            }), 
             upcomingArrivals: arrivals 
         };
     }, [allBookings]);
@@ -145,7 +150,7 @@ export default function App() {
         if (!checkIn || !checkOut) return 0;
         const checkInDate = parseDateAsLocal(checkIn);
         const checkOutDate = parseDateAsLocal(checkOut);
-        if (checkOutDate <= checkInDate) return 0;
+        if (!checkInDate || !checkOutDate || checkOutDate <= checkInDate) return 0;
         const nights = Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24));
         if (nights <= 0) return 0;
         const prices = PRICING_CONFIG[season] || PRICING_CONFIG.low;
@@ -155,6 +160,9 @@ export default function App() {
 
     const findAvailableCabinId = async (cabinType, checkIn, checkOut, excludingBookingId = null) => {
         const { count } = CABIN_CONFIG[cabinType];
+        const checkInDate = parseDateAsLocal(checkIn);
+        const checkOutDate = parseDateAsLocal(checkOut);
+
         for (let i = 1; i <= count; i++) {
             const cabinId = `${cabinType}-${i}`;
             const q = query(collection(db, "reservations"), where("cabinId", "==", cabinId));
@@ -163,7 +171,9 @@ export default function App() {
             for (const doc of querySnapshot.docs) {
                 if (doc.id === excludingBookingId) continue;
                 const b = doc.data();
-                if (parseDateAsLocal(checkIn) < parseDateAsLocal(b.checkOut) && parseDateAsLocal(checkOut) > parseDateAsLocal(b.checkIn)) {
+                const bCheckIn = parseDateAsLocal(b.checkIn);
+                const bCheckOut = parseDateAsLocal(b.checkOut);
+                if (bCheckIn && bCheckOut && checkInDate < bCheckOut && checkOutDate > bCheckIn) {
                     isAvailable = false;
                     break;
                 }
@@ -283,8 +293,12 @@ export default function App() {
         
         const monthlyBookings = activeBookings.filter(b => {
             const checkIn = parseDateAsLocal(b.checkIn);
-            return checkIn.getFullYear() === year && checkIn.getMonth() === month;
-        }).sort((a, b) => parseDateAsLocal(a.checkIn) - parseDateAsLocal(b.checkIn));
+            return checkIn && checkIn.getFullYear() === year && checkIn.getMonth() === month;
+        }).sort((a, b) => {
+            const dateA = a.checkIn ? parseDateAsLocal(a.checkIn).getTime() : 0;
+            const dateB = b.checkIn ? parseDateAsLocal(b.checkIn).getTime() : 0;
+            return dateA - dateB;
+        });
 
         if (monthlyBookings.length === 0) {
             setNotification({ message: 'No hay reservas activas para exportar en el mes seleccionado.', type: 'error' });
@@ -306,8 +320,8 @@ export default function App() {
         const head = [['Huésped', 'Check-in', 'Check-out', 'Cabaña', 'Pasajeros', 'Total', 'Temporada']];
         const body = monthlyBookings.map(b => [
             b.guestName,
-            parseDateAsLocal(b.checkIn).toLocaleDateString('es-CL'),
-            parseDateAsLocal(b.checkOut).toLocaleDateString('es-CL'),
+            b.checkIn ? parseDateAsLocal(b.checkIn).toLocaleDateString('es-CL') : 'N/A',
+            b.checkOut ? parseDateAsLocal(b.checkOut).toLocaleDateString('es-CL') : 'N/A',
             `${CABIN_CONFIG[b.cabinType].name} #${b.cabinId.split('-')[1]}`,
             (b.adults || 0) + (b.children || 0) + (b.toddlers || 0),
             `$${b.totalCost.toLocaleString('es-CL')}`,
@@ -346,7 +360,9 @@ export default function App() {
                 return;
             }
             const totalCost = calculateTotalCost(quoteData.adults, quoteData.children, quoteData.checkIn, quoteData.checkOut, quoteData.season);
-            const nights = Math.ceil((parseDateAsLocal(quoteData.checkOut) - parseDateAsLocal(quoteData.checkIn)) / (1000 * 60 * 60 * 24));
+            const checkInDate = parseDateAsLocal(quoteData.checkIn);
+            const checkOutDate = parseDateAsLocal(quoteData.checkOut);
+            const nights = checkInDate && checkOutDate ? Math.ceil((checkOutDate - checkInDate) / (1000 * 60 * 60 * 24)) : 0;
             setResult({ ...quoteData, totalCost, nights });
         };
 
@@ -364,8 +380,8 @@ export default function App() {
 
             doc.autoTable({
                 body: [
-                    ['Check-in:', parseDateAsLocal(result.checkIn).toLocaleDateString('es-CL')],
-                    ['Check-out:', parseDateAsLocal(result.checkOut).toLocaleDateString('es-CL')],
+                    ['Check-in:', result.checkIn ? parseDateAsLocal(result.checkIn).toLocaleDateString('es-CL') : 'N/A'],
+                    ['Check-out:', result.checkOut ? parseDateAsLocal(result.checkOut).toLocaleDateString('es-CL') : 'N/A'],
                     ['Noches:', result.nights],
                     ['Cabaña:', CABIN_CONFIG[result.cabinType].name],
                     ['Huéspedes:', `${result.adults} Adulto(s), ${result.children} Niño(s)`],
@@ -706,17 +722,14 @@ export default function App() {
                                     const startDate = parseDateAsLocal(booking.checkIn);
                                     const endDate = parseDateAsLocal(booking.checkOut);
 
-                                    if (endDate <= startDate) return null;
+                                    if (!startDate || !endDate || endDate <= startDate) return null;
                                     if (startDate.getFullYear() > year || (startDate.getFullYear() === year && startDate.getMonth() > month)) return null;
                                     if (endDate.getFullYear() < year || (endDate.getFullYear() === year && endDate.getMonth() < month)) return null;
 
                                     const bookingStartDayInMonth = startDate.getMonth() < month ? 1 : startDate.getDate();
-                                    const bookingEndDayInMonth = endDate.getMonth() > month ? daysInMonth + 1 : endDate.getDate();
+                                    const bookingEndDayInMonth = endDate.getMonth() > month ? daysInMonth : endDate.getDate();
                                     
-                                    // --- CORRECCIÓN APLICADA ---
-                                    // La duración ahora suma 1 para que la barra visual incluya el día de check-out,
-                                    // haciendo que la barra termine al final del día de la fecha de salida.
-                                    const duration = bookingEndDayInMonth - bookingStartDayInMonth + 1;
+                                    const duration = (bookingEndDayInMonth - bookingStartDayInMonth) + 1;
                                     
                                     if (duration <= 0) return null;
 
@@ -798,8 +811,9 @@ export default function App() {
                             {filteredBookings.map(b => (
                                 <tr key={b.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                     <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{b.guestName}</td>
-                                    <td className="px-6 py-4">{new Date(b.checkIn).toLocaleDateString('es-CL')}</td>
-                                    <td className="px-6 py-4">{new Date(b.checkOut).toLocaleDateString('es-CL')}</td>
+                                    {/* --- CORRECCIÓN APLICADA AQUÍ --- */}
+                                    <td className="px-6 py-4">{b.checkIn ? parseDateAsLocal(b.checkIn).toLocaleDateString('es-CL') : 'N/A'}</td>
+                                    <td className="px-6 py-4">{b.checkOut ? parseDateAsLocal(b.checkOut).toLocaleDateString('es-CL') : 'N/A'}</td>
                                     <td className="px-6 py-4">{CABIN_CONFIG[b.cabinType].name} ({b.cabinId})</td>
                                     <td className="px-6 py-4 flex items-center">
                                         ${b.totalCost.toLocaleString('es-CL')}
@@ -836,7 +850,7 @@ export default function App() {
         const getWhatsAppMessage = (arrival) => {
             const message = `*Recordatorio de Llegada Próxima*\n\n` +
                             `*Huésped:* ${arrival.guestName}\n` +
-                            `*Llega en:* ${new Date(arrival.checkIn).toLocaleDateString('es-CL')}\n` +
+                            `*Llega en:* ${arrival.checkIn ? parseDateAsLocal(arrival.checkIn).toLocaleDateString('es-CL') : 'N/A'}\n` +
                             `*Pasajeros:* ${(arrival.adults || 0) + (arrival.children || 0) + (arrival.toddlers || 0)}\n` +
                             `*Vuelo de llegada:* ${arrival.arrivalFlight || 'No especificado'}`;
             return encodeURIComponent(message);
@@ -846,7 +860,7 @@ export default function App() {
             return encodeURIComponent(
                 `Hola,\n\nEste es un recordatorio para la siguiente llegada:\n\n` +
                 `Huésped: ${arrival.guestName}\n` +
-                `Fecha de llegada: ${new Date(arrival.checkIn).toLocaleDateString('es-CL')}\n` +
+                `Fecha de llegada: ${arrival.checkIn ? parseDateAsLocal(arrival.checkIn).toLocaleDateString('es-CL') : 'N/A'}\n` +
                 `Cantidad de pasajeros: ${(arrival.adults || 0) + (arrival.children || 0) + (arrival.toddlers || 0)}\n` +
                 `Vuelo de llegada: ${arrival.arrivalFlight || 'No especificado'}\n\n` +
                 `Saludos,\nTu App de Reservas`
@@ -864,7 +878,7 @@ export default function App() {
                         <div key={arrival.id} className="bg-white/50 dark:bg-black/20 p-3 rounded-md flex flex-col md:flex-row justify-between items-start md:items-center">
                             <div>
                                 <p className="font-bold">{arrival.guestName}</p>
-                                <p className="text-sm">Llega: {new Date(arrival.checkIn).toLocaleDateString('es-CL')} | {`Vuelo: ${arrival.arrivalFlight || 'N/A'}`} | Pasajeros: {(arrival.adults || 0) + (arrival.children || 0) + (arrival.toddlers || 0)}</p>
+                                <p className="text-sm">Llega: {arrival.checkIn ? parseDateAsLocal(arrival.checkIn).toLocaleDateString('es-CL') : 'N/A'} | {`Vuelo: ${arrival.arrivalFlight || 'N/A'}`} | Pasajeros: {(arrival.adults || 0) + (arrival.children || 0) + (arrival.toddlers || 0)}</p>
                             </div>
                             <div className="flex space-x-2 mt-2 md:mt-0">
                                 <a href={`https://wa.me/56984562244?text=${getWhatsAppMessage(arrival)}`} target="_blank" rel="noopener noreferrer" className="p-2 bg-green-500 text-white rounded-full hover:bg-green-600"><MessageSquare size={16}/></a>
