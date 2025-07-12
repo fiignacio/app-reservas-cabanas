@@ -663,11 +663,11 @@ export default function App() {
         );
     };
 
-    const TimelineCalendarView = ({ bookingsToDisplay }) => {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+       const TimelineCalendarView = ({ bookingsToDisplay }) => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
         
         const allCabins = useMemo(() => {
             const cabins = [];
@@ -710,32 +710,40 @@ export default function App() {
                                 </div>
                                 
                                 {/* Render Bookings */}
-                                {bookingsToDisplay.filter(b => b.cabinId === cabin.id).map(booking => {
-                                    const startDate = parseDateAsLocal(booking.checkIn);
-                                    const endDate = parseDateAsLocal(booking.checkOut);
+                                 {bookingsToDisplay.filter(b => b.cabinId === cabin.id).map(booking => {
+                                    const startDate = parseDateAsLocal(booking.checkIn);
+                                    const endDate = parseDateAsLocal(booking.checkOut);
 
-                                    if (endDate <= startDate) return null;
-                                    if (startDate.getFullYear() > year || (startDate.getFullYear() === year && startDate.getMonth() > month)) return null;
-                                    if (endDate.getFullYear() < year || (endDate.getFullYear() === year && endDate.getMonth() < month)) return null;
+                                    if (endDate <= startDate) return null;
+                                    if (startDate.getFullYear() > year || (startDate.getFullYear() === year && startDate.getMonth() > month)) return null;
+                                    if (endDate.getFullYear() < year || (endDate.getFullYear() === year && endDate.getMonth() < month)) return null;
 
-                                    const startDay = startDate.getMonth() < month ? 1 : startDate.getDate();
-                                    const endDay = endDate.getMonth() > month ? daysInMonth + 1 : endDate.getDate();
+                                    const startDay = startDate.getMonth() < month ? 1 : startDate.getDate();
+                                    const endDay = endDate.getMonth() > month ? daysInMonth : endDate.getDate();
+                                    
+                                     // --- AJUSTE REALIZADO AQUÍ ---
+                                     // Se calcula la duración para que la barra visualmente incluya el día de check-out.
+                                     // Por ejemplo, una reserva del 15 al 17 (2 noches) ahora ocupará 2 días en la barra (15 y 16),
+                                     // terminando justo al final del día 16. La lógica original hacía que terminara al inicio del 17.
+                                     // Esta es la forma correcta de calcular la duración en noches.
+                                    const bookingStartDayInMonth = startDate.getMonth() < month ? 1 : startDate.getDate();
+                                     const bookingEndDayInMonth = endDate.getMonth() > month ? daysInMonth + 1 : endDate.getDate();
+                                     const duration = bookingEndDayInMonth - bookingStartDayInMonth;
+                                    if (duration <= 0) return null;
+
+                                    const colorSet = CABIN_CONFIG[booking.cabinType].color[booking.season || 'low'];
+                                    
                                     
-                                    const duration = endDay - startDay;
-                                    if (duration <= 0) return null;
-
-                                    const colorSet = CABIN_CONFIG[booking.cabinType].color[booking.season || 'low'];
-                                    
-                                    return (
-                                        <div 
-                                            key={booking.id}
-                                            onClick={() => openModal(booking)}
-                                            className="absolute h-10 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-lg shadow-sm cursor-pointer border border-black/20"
-                                            style={{
-                                                left: `calc(${(startDay - 1) * 100 / daysInMonth}%)`,
-                                                width: `calc(${duration * 100 / daysInMonth}%)`,
-                                                backgroundColor: darkMode ? colorSet.dark : colorSet.light,
-                                            }}
+                                   return (
+                                        <div 
+                                            key={booking.id}
+                                            onClick={() => openModal(booking)}
+                                            className="absolute h-10 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-lg shadow-sm cursor-pointer border border-black/20"
+                                            style={{
+                                                left: `calc(${(startDay - 1) * 100 / daysInMonth}%)`,
+                                                width: `calc(${duration * 100 / daysInMonth}%)`,
+                              _                  backgroundColor: darkMode ? colorSet.dark : colorSet.light,
+                                            }}
                                             title={booking.guestName}
                                         >
                                             <span className="font-semibold truncate text-xs px-2" style={{color: darkMode ? '#fff' : '#000', textShadow: '1px 1px 1px rgba(0,0,0,0.1)'}}>
