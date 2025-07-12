@@ -681,7 +681,7 @@ export default function App() {
 
         return (
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md overflow-x-auto">
-                <div className="flex justify-between items-center mb-4 sticky left-0">
+                <div className="flex justify-between items-center mb-4">
                     <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronLeft/></button>
                     <h2 className="text-xl font-bold text-gray-800 dark:text-white">
                         {currentDate.toLocaleString('es-CL', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
