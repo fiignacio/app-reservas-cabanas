@@ -8,9 +8,9 @@ import 'jspdf-autotable';
 import { Calendar, Users, DollarSign, BarChart2, Plus, Edit, Trash2, Moon, Sun, AlertCircle, CheckCircle, X, Info, ChevronLeft, ChevronRight, Lock, LockOpen, Car, Plane, ClipboardList, FileText, Download, Archive, Bell, Mail, MessageSquare, Search } from 'lucide-react';
 
 // --- CONFIGURACIÓN ---
-// REEMPLAZA ESTO CON TUS PROPIAS VARIABLES DE ENTORNO
+// RECUERDA USAR VARIABLES DE ENTORNO PARA LAS CLAVES DE FIREBASE
 const firebaseConfig = {
-  apiKey: "AIzaSyDj95U3l2NH0qWiekGyp4klhg6Ny3T8smU",
+  apiKey: "AIzaSyDj95U3l2NH0qWiekGyp4klhg6Ny3T8smU", // ¡PROTEGER ESTA CLAVE!
   authDomain: "manuarareservas.firebaseapp.com",
   projectId: "manuarareservas",
   storageBucket: "manuarareservas.firebasestorage.app",
@@ -18,6 +18,7 @@ const firebaseConfig = {
   appId: "1:93580658717:web:685e2d16cc669498159ef4",
   measurementId: "G-8CJF38FQH8"
 };
+
 
 // **INSTRUCCIÓN**: Reemplaza la siguiente cadena de texto con la versión Base64 de tu propio logo.
 const LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; // Logo de 1x1 pixel como placeholder
@@ -709,12 +710,13 @@ export default function App() {
                                     if (startDate.getFullYear() > year || (startDate.getFullYear() === year && startDate.getMonth() > month)) return null;
                                     if (endDate.getFullYear() < year || (endDate.getFullYear() === year && endDate.getMonth() < month)) return null;
 
-                                    // --- MODIFICACIÓN INDICADA ---
-                                    // Se usan nombres de variables más claros para el cálculo de la duración.
-                                    // La lógica calcula el número de noches, que corresponde a los días que la barra debe ocupar.
                                     const bookingStartDayInMonth = startDate.getMonth() < month ? 1 : startDate.getDate();
                                     const bookingEndDayInMonth = endDate.getMonth() > month ? daysInMonth + 1 : endDate.getDate();
-                                    const duration = bookingEndDayInMonth - bookingStartDayInMonth;
+                                    
+                                    // --- CORRECCIÓN APLICADA ---
+                                    // La duración ahora suma 1 para que la barra visual incluya el día de check-out,
+                                    // haciendo que la barra termine al final del día de la fecha de salida.
+                                    const duration = bookingEndDayInMonth - bookingStartDayInMonth + 1;
                                     
                                     if (duration <= 0) return null;
 
