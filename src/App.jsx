@@ -716,7 +716,7 @@ export default function App() {
                                                 >
                                                     {isStart && 
                                                         <div className="absolute inset-0 flex items-center pl-2 overflow-hidden">
-                                                            <span className="font-semibold truncate text-xs text-white" style={{textShadow: '1px 1px 2px rgba(0,0,0,0.7)'}}>
+                                                            <span className="font-semibold truncate text-xs" style={{color: darkMode ? '#fff' : '#000', textShadow: '1px 1px 2px rgba(0,0,0,0.2)'}}>
                                                                 {bookingOnThisDay.guestName} ({ (bookingOnThisDay.adults || 0) + (bookingOnThisDay.children || 0) + (bookingOnThisDay.toddlers || 0) }p)
                                                             </span>
                                                         </div>
