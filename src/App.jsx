@@ -697,43 +697,41 @@ export default function App() {
                         {allCabins.map((cabin, cabinIndex) => (
                             <React.Fragment key={cabin.id}>
                                 <div className={`sticky left-0 z-10 font-medium p-2 border-r dark:border-gray-700 ${cabinIndex % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-700'}`}>{cabin.name}</div>
-                                {days.map(day => {
-                                    const currentDayDate = new Date(year, month, day);
+                                {days.map(day => (
+                                    <div key={day} className={`border-b dark:border-gray-700 relative h-12 ${cabinIndex % 2 === 0 ? 'bg-gray-50 dark:bg-gray-900/50' : 'bg-white dark:bg-gray-800'}`}>
+                                        {/* This cell is now just a placeholder for positioning */}
+                                    </div>
+                                ))}
+                                {bookingsToDisplay.filter(b => b.cabinId === cabin.id).map(booking => {
+                                    const startDate = parseDateAsLocal(booking.checkIn);
+                                    const endDate = parseDateAsLocal(booking.checkOut);
                                     
-                                    const checkInBooking = bookingsToDisplay.find(b => b.cabinId === cabin.id && parseDateAsLocal(b.checkIn).getTime() === currentDayDate.getTime());
-                                    const checkOutBooking = bookingsToDisplay.find(b => b.cabinId === cabin.id && parseDateAsLocal(b.checkOut).getTime() === currentDayDate.getTime());
-                                    const ongoingBooking = bookingsToDisplay.find(b => b.cabinId === cabin.id && parseDateAsLocal(b.checkIn) < currentDayDate && parseDateAsLocal(b.checkOut) > currentDayDate);
+                                    if (startDate.getMonth() > month || endDate.getMonth() < month) return null;
                                     
-                                    const bookingForCell = checkInBooking || ongoingBooking;
-                                    const colorSet = bookingForCell ? CABIN_CONFIG[bookingForCell.cabinType].color[bookingForCell.season || 'low'] : null;
+                                    const startDay = startDate.getMonth() === month ? startDate.getDate() : 1;
+                                    const endDay = endDate.getMonth() === month ? endDate.getDate() : daysInMonth + 1;
+                                    const duration = endDay - startDay;
+
+                                    if (duration <= 0) return null;
+
+                                    const colorSet = CABIN_CONFIG[booking.cabinType].color[booking.season || 'low'];
 
                                     return (
-                                        <div key={day} className={`border-b dark:border-gray-700 relative h-12 ${cabinIndex % 2 === 0 ? 'bg-gray-50 dark:bg-gray-900/50' : 'bg-white dark:bg-gray-800'}`}>
-                                            {checkOutBooking && (
-                                                <div className="absolute top-0 left-0 w-full h-1/2 bg-gray-400/50 dark:bg-gray-600/50" title={`Salida: ${checkOutBooking.guestName}`}></div>
-                                            )}
-                                            {bookingForCell && (
-                                                <div 
-                                                    onClick={() => openModal(bookingForCell)}
-                                                    className={`absolute inset-0 cursor-pointer border-2 border-white dark:border-gray-800 
-                                                        ${checkInBooking && checkOutBooking ? 'top-1/2 h-1/2' : ''}
-                                                        ${checkInBooking ? 'rounded-l-lg' : ''}
-                                                        ${parseDateAsLocal(bookingForCell.checkOut).getTime() === new Date(year, month, day + 1).getTime() ? 'rounded-r-lg' : ''}
-                                                    `}
-                                                    style={{backgroundColor: darkMode ? colorSet.dark : colorSet.light}}
-                                                    title={bookingForCell.guestName}
-                                                >
-                                                    {checkInBooking && 
-                                                        <div className="absolute inset-0 flex items-center pl-2 overflow-hidden">
-                                                            <span className="font-semibold truncate text-xs" style={{color: darkMode ? '#fff' : '#000', textShadow: '1px 1px 2px rgba(0,0,0,0.2)'}}>
-                                                                {bookingForCell.guestName} ({ (bookingForCell.adults || 0) + (bookingForCell.children || 0) + (bookingForCell.toddlers || 0) }p)
-                                                            </span>
-                                                        </div>
-                                                    }
-                                                </div>
-                                            )}
+                                        <div 
+                                            key={booking.id}
+                                            onClick={() => openModal(booking)}
+                                            className="absolute h-10 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-lg shadow-sm cursor-pointer border border-black/20"
+                                            style={{
+                                                gridColumn: `${startDay + 1} / span ${duration}`,
+                                                backgroundColor: darkMode ? colorSet.dark : colorSet.light,
+                                            }}
+                                            title={booking.guestName}
+                                        >
+                                            <span className="font-semibold truncate text-xs px-2" style={{color: darkMode ? '#fff' : '#000', textShadow: '1px 1px 1px rgba(0,0,0,0.1)'}}>
+                                                {booking.guestName} ({ (booking.adults || 0) + (booking.children || 0) + (booking.toddlers || 0) }p)
+                                            </span>
                                         </div>
-                                    );
+                                    )
                                 })}
                             </React.Fragment>
                         ))}
