@@ -753,12 +753,30 @@ export default function App() {
     };
     
     const BookingListView = ({ bookingsToDisplay, title }) => {
-        const sortedBookings = [...bookingsToDisplay].sort((a, b) => new Date(a.checkIn) - new Date(b.checkIn));
+        const [filteredBookings, setFilteredBookings] = useState(bookingsToDisplay);
+
+        useEffect(() => {
+            setFilteredBookings(
+                bookingsToDisplay.filter(booking => 
+                    booking.guestName.toLowerCase().includes(searchTerm.toLowerCase())
+                )
+            );
+        }, [searchTerm, bookingsToDisplay]);
 
         return (
             <div className="mt-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                     <h3 className="text-xl font-bold text-gray-800 dark:text-white">{title}</h3>
+                    <div className="relative">
+                        <input 
+                            type="text"
+                            placeholder="Buscar por nombre..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10 pr-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                        />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20}/>
+                    </div>
                     {title === "Reservas Activas" && 
                         <button onClick={exportMonthlyBookingsPDF} className="flex items-center space-x-2 bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 transition">
                             <Download size={18}/>
@@ -781,7 +799,7 @@ export default function App() {
                             </tr>
                         </thead>
                         <tbody>
-                            {sortedBookings.map(b => (
+                            {filteredBookings.map(b => (
                                 <tr key={b.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                     <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{b.guestName}</td>
                                     <td className="px-6 py-4">{new Date(b.checkIn).toLocaleDateString('es-CL')}</td>
