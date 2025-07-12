@@ -5,7 +5,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import { Calendar, Users, DollarSign, BarChart2, Plus, Edit, Trash2, Moon, Sun, AlertCircle, CheckCircle, X, Info, ChevronLeft, ChevronRight, Lock, LockOpen, Car, Plane, ClipboardList, FileText, Download, Archive, Bell, Mail, MessageSquare } from 'lucide-react';
+import { Calendar, Users, DollarSign, BarChart2, Plus, Edit, Trash2, Moon, Sun, AlertCircle, CheckCircle, X, Info, ChevronLeft, ChevronRight, Lock, LockOpen, Car, Plane, ClipboardList, FileText, Download, Archive, Bell, Mail, MessageSquare, Search } from 'lucide-react';
 
 // --- CONFIGURACIÓN ---
 // REEMPLAZA ESTO CON TU PROPIA CONFIGURACIÓN DE FIREBASE
@@ -69,6 +69,7 @@ export default function App() {
     const [isAuthReady, setIsAuthReady] = useState(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, bookingId: null });
     const [eventLogModal, setEventLogModal] = useState({ isOpen: false, booking: null });
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Helper para parsear fechas sin problemas de timezone
     const parseDateAsLocal = (dateString) => {
@@ -687,42 +688,52 @@ export default function App() {
                     </h2>
                     <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><ChevronRight/></button>
                 </div>
-                <div className="inline-block min-w-full">
-                    <div className="grid" style={{ gridTemplateColumns: `150px repeat(${daysInMonth}, minmax(80px, 1fr))` }}>
-                        <div className="sticky left-0 bg-white dark:bg-gray-800 z-10 font-semibold p-2 border-b border-r dark:border-gray-700">Cabaña</div>
+                <div className="grid" style={{ gridTemplateColumns: `150px 1fr` }}>
+                    {/* Header */}
+                    <div className="sticky left-0 bg-white dark:bg-gray-800 z-20 font-semibold p-2 border-b border-r dark:border-gray-700">Cabaña</div>
+                    <div className="grid" style={{ gridTemplateColumns: `repeat(${daysInMonth}, minmax(80px, 1fr))` }}>
                         {days.map(day => (
                             <div key={day} className="text-center font-semibold p-2 border-b dark:border-gray-700">{day}</div>
                         ))}
-                        
-                        {allCabins.map((cabin, cabinIndex) => (
-                            <React.Fragment key={cabin.id}>
-                                <div className={`sticky left-0 z-10 font-medium p-2 border-r dark:border-gray-700 ${cabinIndex % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-700'}`}>{cabin.name}</div>
-                                {days.map(day => (
-                                    <div key={day} className={`border-b dark:border-gray-700 relative h-12 ${cabinIndex % 2 === 0 ? 'bg-gray-50 dark:bg-gray-900/50' : 'bg-white dark:bg-gray-800'}`}>
-                                        {/* This cell is now just a placeholder for positioning */}
-                                    </div>
-                                ))}
+                    </div>
+
+                    {/* Body Rows */}
+                    {allCabins.map((cabin, cabinIndex) => (
+                        <React.Fragment key={cabin.id}>
+                            <div className={`sticky left-0 z-10 font-medium p-2 border-b border-r dark:border-gray-700 flex items-center ${cabinIndex % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-700'}`}>
+                                {cabin.name}
+                            </div>
+                            <div className="relative border-b dark:border-gray-700 h-14">
+                                {/* Day separator lines */}
+                                <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${daysInMonth}, 1fr)` }}>
+                                    {days.map(d => <div key={d} className="border-r dark:border-gray-600 h-full"></div>)}
+                                </div>
+                                
+                                {/* Render Bookings */}
                                 {bookingsToDisplay.filter(b => b.cabinId === cabin.id).map(booking => {
                                     const startDate = parseDateAsLocal(booking.checkIn);
                                     const endDate = parseDateAsLocal(booking.checkOut);
-                                    
-                                    if (startDate.getMonth() > month || endDate.getMonth() < month) return null;
-                                    
-                                    const startDay = startDate.getMonth() === month ? startDate.getDate() : 1;
-                                    const endDay = endDate.getMonth() === month ? endDate.getDate() : daysInMonth + 1;
-                                    const duration = endDay - startDay;
 
+                                    if (endDate <= startDate) return null;
+                                    if (startDate.getFullYear() > year || (startDate.getFullYear() === year && startDate.getMonth() > month)) return null;
+                                    if (endDate.getFullYear() < year || (endDate.getFullYear() === year && endDate.getMonth() < month)) return null;
+
+                                    const startDay = startDate.getMonth() < month ? 1 : startDate.getDate();
+                                    const endDay = endDate.getMonth() > month ? daysInMonth + 1 : endDate.getDate();
+                                    
+                                    const duration = endDay - startDay;
                                     if (duration <= 0) return null;
 
                                     const colorSet = CABIN_CONFIG[booking.cabinType].color[booking.season || 'low'];
-
+                                    
                                     return (
                                         <div 
                                             key={booking.id}
                                             onClick={() => openModal(booking)}
                                             className="absolute h-10 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-lg shadow-sm cursor-pointer border border-black/20"
                                             style={{
-                                                gridColumn: `${startDay + 1} / span ${duration}`,
+                                                left: `calc(${(startDay - 1) * 100 / daysInMonth}%)`,
+                                                width: `calc(${duration * 100 / daysInMonth}%)`,
                                                 backgroundColor: darkMode ? colorSet.dark : colorSet.light,
                                             }}
                                             title={booking.guestName}
@@ -733,9 +744,9 @@ export default function App() {
                                         </div>
                                     )
                                 })}
-                            </React.Fragment>
-                        ))}
-                    </div>
+                            </div>
+                        </React.Fragment>
+                    ))}
                 </div>
             </div>
         );
