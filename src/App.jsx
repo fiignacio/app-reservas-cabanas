@@ -8,25 +8,16 @@ import 'jspdf-autotable';
 import { Calendar, Users, DollarSign, BarChart2, Plus, Edit, Trash2, Moon, Sun, AlertCircle, CheckCircle, X, Info, ChevronLeft, ChevronRight, Lock, LockOpen, Car, Plane, ClipboardList, FileText, Download, Archive, Bell, Mail, MessageSquare, Search } from 'lucide-react';
 
 // --- CONFIGURACIÓN ---
-// REEMPLAZA ESTO CON TU PROPIA CONFIGURACIÓN DE FIREBASE
+// REEMPLAZA ESTO CON TUS PROPIAS VARIABLES DE ENTORNO
 const firebaseConfig = {
-
   apiKey: "AIzaSyDj95U3l2NH0qWiekGyp4klhg6Ny3T8smU",
-
   authDomain: "manuarareservas.firebaseapp.com",
-
   projectId: "manuarareservas",
-
   storageBucket: "manuarareservas.firebasestorage.app",
-
   messagingSenderId: "93580658717",
-
   appId: "1:93580658717:web:685e2d16cc669498159ef4",
-
   measurementId: "G-8CJF38FQH8"
-
 };
-
 
 // **INSTRUCCIÓN**: Reemplaza la siguiente cadena de texto con la versión Base64 de tu propio logo.
 const LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; // Logo de 1x1 pixel como placeholder
@@ -503,7 +494,7 @@ export default function App() {
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-xl max-w-lg w-full">
                     <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">{editingBooking ? 'Editar Reserva' : 'Nueva Reserva'}</h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                         <div>
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre del Huésped</label>
                             <input type="text" name="guestName" value={formData.guestName} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm" required />
                         </div>
@@ -663,11 +654,11 @@ export default function App() {
         );
     };
 
-       const TimelineCalendarView = ({ bookingsToDisplay }) => {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    const TimelineCalendarView = ({ bookingsToDisplay }) => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
         
         const allCabins = useMemo(() => {
             const cabins = [];
@@ -710,40 +701,35 @@ export default function App() {
                                 </div>
                                 
                                 {/* Render Bookings */}
-                                 {bookingsToDisplay.filter(b => b.cabinId === cabin.id).map(booking => {
-                                    const startDate = parseDateAsLocal(booking.checkIn);
-                                    const endDate = parseDateAsLocal(booking.checkOut);
+                                {bookingsToDisplay.filter(b => b.cabinId === cabin.id).map(booking => {
+                                    const startDate = parseDateAsLocal(booking.checkIn);
+                                    const endDate = parseDateAsLocal(booking.checkOut);
 
-                                    if (endDate <= startDate) return null;
-                                    if (startDate.getFullYear() > year || (startDate.getFullYear() === year && startDate.getMonth() > month)) return null;
-                                    if (endDate.getFullYear() < year || (endDate.getFullYear() === year && endDate.getMonth() < month)) return null;
+                                    if (endDate <= startDate) return null;
+                                    if (startDate.getFullYear() > year || (startDate.getFullYear() === year && startDate.getMonth() > month)) return null;
+                                    if (endDate.getFullYear() < year || (endDate.getFullYear() === year && endDate.getMonth() < month)) return null;
 
-                                    const startDay = startDate.getMonth() < month ? 1 : startDate.getDate();
-                                    const endDay = endDate.getMonth() > month ? daysInMonth : endDate.getDate();
-                                    
-                                     // --- AJUSTE REALIZADO AQUÍ ---
-                                     // Se calcula la duración para que la barra visualmente incluya el día de check-out.
-                                     // Por ejemplo, una reserva del 15 al 17 (2 noches) ahora ocupará 2 días en la barra (15 y 16),
-                                     // terminando justo al final del día 16. La lógica original hacía que terminara al inicio del 17.
-                                     // Esta es la forma correcta de calcular la duración en noches.
-                                    const bookingStartDayInMonth = startDate.getMonth() < month ? 1 : startDate.getDate();
-                                     const bookingEndDayInMonth = endDate.getMonth() > month ? daysInMonth + 1 : endDate.getDate();
-                                     const duration = bookingEndDayInMonth - bookingStartDayInMonth;
-                                    if (duration <= 0) return null;
-
-                                    const colorSet = CABIN_CONFIG[booking.cabinType].color[booking.season || 'low'];
-                                    
+                                    // --- MODIFICACIÓN INDICADA ---
+                                    // Se usan nombres de variables más claros para el cálculo de la duración.
+                                    // La lógica calcula el número de noches, que corresponde a los días que la barra debe ocupar.
+                                    const bookingStartDayInMonth = startDate.getMonth() < month ? 1 : startDate.getDate();
+                                    const bookingEndDayInMonth = endDate.getMonth() > month ? daysInMonth + 1 : endDate.getDate();
+                                    const duration = bookingEndDayInMonth - bookingStartDayInMonth;
                                     
-                                   return (
-                                        <div 
-                                            key={booking.id}
-                                            onClick={() => openModal(booking)}
-                                            className="absolute h-10 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-lg shadow-sm cursor-pointer border border-black/20"
-                                            style={{
-                                                left: `calc(${(startDay - 1) * 100 / daysInMonth}%)`,
-                                                width: `calc(${duration * 100 / daysInMonth}%)`,
-                              _                  backgroundColor: darkMode ? colorSet.dark : colorSet.light,
-                                            }}
+                                    if (duration <= 0) return null;
+
+                                    const colorSet = CABIN_CONFIG[booking.cabinType].color[booking.season || 'low'];
+                                    
+                                    return (
+                                        <div 
+                                            key={booking.id}
+                                            onClick={() => openModal(booking)}
+                                            className="absolute h-10 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-lg shadow-sm cursor-pointer border border-black/20"
+                                            style={{
+                                                left: `calc(${(bookingStartDayInMonth - 1) * 100 / daysInMonth}%)`,
+                                                width: `calc(${duration * 100 / daysInMonth}%)`,
+                                                backgroundColor: darkMode ? colorSet.dark : colorSet.light,
+                                            }}
                                             title={booking.guestName}
                                         >
                                             <span className="font-semibold truncate text-xs px-2" style={{color: darkMode ? '#fff' : '#000', textShadow: '1px 1px 1px rgba(0,0,0,0.1)'}}>
