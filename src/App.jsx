@@ -710,14 +710,16 @@ export default function App() {
                                             {bookingOnThisDay && (
                                                 <div 
                                                     onClick={() => openModal(bookingOnThisDay)}
-                                                    className={`h-full flex items-center text-xs cursor-pointer whitespace-nowrap overflow-hidden ${isStart ? 'pl-2' : ''}`} 
-                                                    style={{backgroundColor: darkMode ? colorSet.dark : colorSet.light, color: darkMode ? '#fff' : '#000'}}
+                                                    className="absolute inset-0 cursor-pointer"
+                                                    style={{backgroundColor: darkMode ? colorSet.dark : colorSet.light}}
                                                     title={bookingOnThisDay.guestName}
                                                 >
                                                     {isStart && 
-                                                        <span className="font-semibold truncate">
-                                                            {bookingOnThisDay.guestName} ({ (bookingOnThisDay.adults || 0) + (bookingOnThisDay.children || 0) + (bookingOnThisDay.toddlers || 0) }p)
-                                                        </span>
+                                                        <div className="absolute inset-0 flex items-center pl-2 overflow-hidden">
+                                                            <span className="font-semibold truncate text-xs text-white" style={{textShadow: '1px 1px 2px rgba(0,0,0,0.7)'}}>
+                                                                {bookingOnThisDay.guestName} ({ (bookingOnThisDay.adults || 0) + (bookingOnThisDay.children || 0) + (bookingOnThisDay.toddlers || 0) }p)
+                                                            </span>
+                                                        </div>
                                                     }
                                                 </div>
                                             )}
